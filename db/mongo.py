@@ -1,18 +1,11 @@
 import csv
 import os
 
-import MySQLdb
-import MySQLdb.cursors
 from pymongo import MongoClient
 
-GPFS_NAME = 'GSS-cbls-ccr-buffalo-edu:gpfs0'
+from db import RESOURCE_NAMES, GPFS_NAME
+
 MONGO_URI = os.environ.get("MONGO_URI")
-MYSQL_HOST = os.environ.get("MYSQL_HOST", "127.0.0.1")
-
-RESOURCE_NAMES = {"resource_11", "resource_13", "resource_9", "resource_8", "resource_10"}
-
-db = MySQLdb.connect(host=MYSQL_HOST, port=3306, user=os.environ['MYSQL_USER'], password=os.environ['MYSQL_PW'],
-                     cursorclass=MySQLdb.cursors.DictCursor)
 
 def extract_jobs_data(resource):
     client = MongoClient(MONGO_URI)

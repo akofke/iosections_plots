@@ -1,10 +1,11 @@
 from collections import defaultdict, Counter
-from time import process_time
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from db import extract_jobs_data, GPFS_NAME, db
+from db.mongo import extract_jobs_data
+from db import GPFS_NAME
+from db.mysql import get_results
 
 
 def normalize_inf(ratios):
@@ -89,46 +90,9 @@ def generate_plots():
 
     plt.show()
 
-def mysql_query():
-    query = f"""
-    SELECT
-      io.r0,
-      io.r1,
-      io.r2,
-      io.r3,
-      io.w0,
-      io.w1,
-      io.w2,
-      io.w3,
-      io.gpfs_read,
-      io.gpfs_write,
-      a.name AS appname,
-      pip.short_name AS pi
-    FROM
-      `ts_analysis`.`iosections` io,
-      `modw_supremm`.`job` j,
-      `modw_supremm`.`application` a,
-      `modw`.`piperson` pip
-    WHERE
-      io.res_id = j.resource_id AND io.local_job_id = j.local_job_id AND io.end_timestamp = j.end_time_ts
-      AND j.datasource_id = 2
-      AND (j.end_time_ts - j.start_time_ts) > %s
-      AND j.application_id = a.id
-      AND j.principalinvestigator_person_id = pip.person_id
-    """
-
-    t = time.process_time()
-    cur = db.cursor()
-    cur.execute(query, (3600,))
-    print(f"Executed mysql query in {time.process_time() - t}")
-    results = cur.fetchall()
-    size = sys.getsizeof(results)
-    print(size)
-    return results
-
 
 def plot_by_application():
-    results = mysql_query()
+    results = get_results()
 
     jobs_by_app = defaultdict(list)
     jobs_by_pi = defaultdict(list)
@@ -139,7 +103,6 @@ def plot_by_application():
 
     apps_count = Counter({app: len(jlist) for app, jlist in jobs_by_app.items()})
     pi_count = Counter({app: len(jlist) for app, jlist in jobs_by_pi.items()})
-    print(pi_count.most_common(10))
 
     jobs_by_app = {a[0]: jobs_by_app[a[0]] for a in apps_count.most_common(9)}
     jobs_by_pi = {a[0]: jobs_by_pi[a[0]] for a in pi_count.most_common(9)}
