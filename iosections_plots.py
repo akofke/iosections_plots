@@ -143,6 +143,9 @@ def plot3d():
     print(len(xs))
 
     ax.scatter(xs, ys, zs)
+    ax.set_xlabel('Section 1 b/s read')
+    ax.set_ylabel('Section 4 b/s read')
+    ax.set_zlabel('Total bytes read')
     plt.show()
 
 
