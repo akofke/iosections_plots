@@ -1,6 +1,7 @@
 from collections import defaultdict, Counter
 
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.axes3d import Axes3D
 import numpy as np
 
 from db.mongo import extract_jobs_data
@@ -130,8 +131,24 @@ def plot_by_application():
     plt.show()
 
 
+def plot3d():
+    results = get_results()
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    xs = [job['r0'] for job in results]
+    ys = [job['r3'] for job in results]
+    zs = [job['gpfs_read'] for job in results]
+    print(len(xs))
+
+    ax.scatter(xs, ys, zs)
+    plt.show()
+
+
 def main():
     plot_by_application()
+    plot3d()
     # for res in RESOURCE_NAMES:
     #     write_csv(extract_jobs_data(res), res)
 

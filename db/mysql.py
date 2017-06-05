@@ -21,6 +21,8 @@ QUERY = f"""
       io.w1,
       io.w2,
       io.w3,
+      ((io.r0 + io.r3) / 2) - ((io.r1 + io.r2) / 2) AS caps_mid_diff_read,
+      ((io.w0 + io.w3) / 2) - ((io.w1 + io.w2) / 2) AS caps_mid_diff_write,
       io.gpfs_read,
       io.gpfs_write,
       a.name AS appname,
@@ -47,6 +49,7 @@ def get_results(rebuild_cache=False):
         cur.execute(QUERY, (3600,))
         print(f"Executed mysql query in {time.perf_counter() - t} sec")
         results = cur.fetchall()
+        cur.close()
 
         with open(CACHE_FILENAME, 'wb') as cache:
             pickle.dump(results, cache)
