@@ -2,14 +2,16 @@ import csv
 import os
 
 import MySQLdb
+import MySQLdb.cursors
 from pymongo import MongoClient
 
 GPFS_NAME = 'GSS-cbls-ccr-buffalo-edu:gpfs0'
 MONGO_URI = os.environ.get("MONGO_URI")
+MYSQL_HOST = os.environ.get("MYSQL_HOST", "127.0.0.1")
 
 RESOURCE_NAMES = {"resource_11", "resource_13", "resource_9", "resource_8", "resource_10"}
 
-db = MySQLdb.connect(host="127.0.0.1", port=3306, user=os.environ['MYSQL_USER'], password=os.environ['MYSQL_PW'],
+db = MySQLdb.connect(host=MYSQL_HOST, port=3306, user=os.environ['MYSQL_USER'], password=os.environ['MYSQL_PW'],
                      cursorclass=MySQLdb.cursors.DictCursor)
 
 def extract_jobs_data(resource):
@@ -51,3 +53,11 @@ def write_csv(jobs, res_name):
             row.extend((job['gpfs'][GPFS_NAME]['read_bytes']['avg'], job['gpfs'][GPFS_NAME]['write_bytes']['avg']))
 
             writer.writerow(row)
+
+def main():
+    for res in RESOURCE_NAMES:
+        print(f"starting {res}")
+        write_csv(extract_jobs_data(res), res)
+
+if __name__ == '__main__':
+    main()

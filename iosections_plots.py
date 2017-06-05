@@ -1,4 +1,5 @@
 from collections import defaultdict, Counter
+from time import process_time
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -88,10 +89,9 @@ def generate_plots():
 
     plt.show()
 
-
-def plot_by_application():
+def mysql_query():
     query = f"""
-    SELECT 
+    SELECT
       io.r0,
       io.r1,
       io.r2,
@@ -109,19 +109,30 @@ def plot_by_application():
       `modw_supremm`.`job` j,
       `modw_supremm`.`application` a,
       `modw`.`piperson` pip
-    WHERE 
+    WHERE
       io.res_id = j.resource_id AND io.local_job_id = j.local_job_id AND io.end_timestamp = j.end_time_ts
+      AND j.datasource_id = 2
       AND (j.end_time_ts - j.start_time_ts) > %s
-      AND j.application_id = a.id 
+      AND j.application_id = a.id
       AND j.principalinvestigator_person_id = pip.person_id
     """
 
+    t = time.process_time()
     cur = db.cursor()
     cur.execute(query, (3600,))
+    print(f"Executed mysql query in {time.process_time() - t}")
+    results = cur.fetchall()
+    size = sys.getsizeof(results)
+    print(size)
+    return results
+
+
+def plot_by_application():
+    results = mysql_query()
 
     jobs_by_app = defaultdict(list)
     jobs_by_pi = defaultdict(list)
-    for job in cur:
+    for job in results:
         appname = job["appname"]
         jobs_by_app[appname].append(job)
         jobs_by_pi[job['pi']].append(job)
@@ -149,7 +160,7 @@ def plot_by_application():
         xs = np.log2(xs)
         ys = [y / 1024 ** 2 for y in ys]
         color = plt.cm.jet(1. * i / (len(jobsmap) - 1)) if key != "uncategorized" else 'black'
-        plt.scatter(xs, ys, c=color, alpha=0.7)
+        plt.scatter(xs, ys, c=color, alpha=0.7, s=3)
         legend.append(key)
 
     plt.legend(legend)
