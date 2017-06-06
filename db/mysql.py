@@ -8,9 +8,6 @@ from MySQLdb.cursors import DictCursor
 CACHE_FILENAME = 'results.p'
 MYSQL_HOST = os.environ.get("MYSQL_HOST", "127.0.0.1")
 
-conn = MySQLdb.connect(host=MYSQL_HOST, port=3306, user=os.environ['MYSQL_USER'], password=os.environ['MYSQL_PW'],
-                       cursorclass=DictCursor)
-
 QUERY = f"""
     SELECT
       io.r0,
@@ -43,6 +40,9 @@ QUERY = f"""
 
 def get_results(rebuild_cache=False):
     if rebuild_cache or not os.path.isfile(CACHE_FILENAME):
+        conn = MySQLdb.connect(host=MYSQL_HOST, port=3306, user=os.environ['MYSQL_USER'],
+                               password=os.environ['MYSQL_PW'],
+                               cursorclass=DictCursor)
 
         t = time.perf_counter()
         cur = conn.cursor()
@@ -59,3 +59,21 @@ def get_results(rebuild_cache=False):
             results = pickle.load(cache)
 
     return results
+
+
+class Results:
+
+    def __init__(self, rebuild_cache=False):
+        self._data = get_results(rebuild_cache=rebuild_cache)
+
+    def filter(self, func):
+        self._data = filter(func, self.data)
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        self._data = value
+

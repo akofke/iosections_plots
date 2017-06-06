@@ -1,12 +1,22 @@
 from collections import defaultdict, Counter
+from functools import partial
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.axes3d import Axes3D
+import plotly
+import plotly.graph_objs as gr
 import numpy as np
 
 from db.mongo import extract_jobs_data
 from db import GPFS_NAME
-from db.mysql import get_results
+from db.mysql import Results
+
+results = Results()
+plotter = plotly.offline.iplot
+
+
+def to_mb(b):
+    return b / 1024.0 / 1024
 
 
 def normalize_inf(ratios):
@@ -92,69 +102,140 @@ def generate_plots():
     plt.show()
 
 
-def plot_by_application():
-    results = get_results()
+def st(stat, jobs=results.data, transform=to_mb):
+    """
+    Generates a data series for a single stat key, e.g. r0 or gpfs_write.
+    :param stat: the key string for the stat
+    :param transform: a function to apply to each data point (e.g. to_mb to convert bytes to mb)
+    :return: a list of data points
+    """
+    return stat, [transform(job[stat]) if transform else job[stat] for job in jobs]
 
-    jobs_by_app = defaultdict(list)
-    jobs_by_pi = defaultdict(list)
-    for job in results:
-        appname = job["appname"]
-        jobs_by_app[appname].append(job)
-        jobs_by_pi[job['pi']].append(job)
 
-    apps_count = Counter({app: len(jlist) for app, jlist in jobs_by_app.items()})
-    pi_count = Counter({app: len(jlist) for app, jlist in jobs_by_pi.items()})
+def stdiff(stat1, stat2, jobs=results.data, transform=to_mb):
+    """
+    Generate a data series for a difference between two stats, e.g. r0 - r1
+    :param stat1:
+    :param stat2:
+    :param transform:
+    :return:
+    """
+    return f'{stat1} - {stat2}', [transform(job[stat1] - job[stat2]) if transform else job[stat1] - job[stat2] for job in jobs]
 
-    jobs_by_app = {a[0]: jobs_by_app[a[0]] for a in apps_count.most_common(9)}
-    jobs_by_pi = {a[0]: jobs_by_pi[a[0]] for a in pi_count.most_common(9)}
 
-    cmap = plt.cm.get_cmap('hsv', 9)
-    legend = []
-    jobsmap = jobs_by_app
-    for i, (key, jobs) in enumerate(jobsmap.items()):
-        xs = []
-        ys = []
-        for job in jobs:
-            # diff = job['r0'] - job['r1']
-            diff = mean((job['r0'], job['r3'])) - mean((job['r1'], job['r2']))
-            if abs(diff) > 0.25e8:
-                continue
-            xs.append(job['gpfs_read'])
-            ys.append(diff)
-        xs = np.log2(xs)
-        ys = [y / 1024 ** 2 for y in ys]
-        color = plt.cm.jet(1. * i / (len(jobsmap) - 1)) if key != "uncategorized" else 'black'
-        plt.scatter(xs, ys, c=color, alpha=0.7, s=3)
-        legend.append(key)
+def plot_by_category(cat_key, xfunc, yfunc, n_most_common=8, logx=False, logy=False):
 
-    plt.legend(legend)
-    plt.show()
+    # use a defaultdict so new keys automatically start a list
+    jobs_by_category = defaultdict(list)
+
+    # sort the jobs into lists all with the same key
+    for job in results.data:
+        jobs_by_category[job[cat_key]].append(job)
+
+    # count the number of jobs in each category
+    category_count = Counter({cat: len(jlist) for cat, jlist in jobs_by_category.items()})
+
+    # filter down to just the n most common categories
+    jobs_by_category = {a[0]: jobs_by_category[a[0]] for a in category_count.most_common(n_most_common)}
+
+    traces = []
+
+    for cat, jobs in jobs_by_category.items():
+        xlabel, xs = xfunc(jobs=jobs)
+        ylabel, ys = yfunc(jobs=jobs)
+        trace = gr.Scattergl(
+            x=xs,
+            y=ys,
+            name=cat,
+            mode='markers',
+            marker={
+                'size': 5
+            }
+        )
+
+        traces.append(trace)
+
+    layout = gr.Layout(
+        title=f'Jobs by {cat_key}',
+        xaxis={
+            'title': xlabel,
+            'type': 'log' if logx else '-'
+        },
+        yaxis={
+            'title': ylabel,
+            'type': 'log' if logy else '-'
+        }
+    )
+
+    fig = gr.Figure(data=traces, layout=layout)
+    plotter(fig)
+
+
+def scatter2d(*axdata, logx=False, logy=False):
+    traces = []
+    for xdata, ydata in axdata:
+        xlabel, xs = xdata
+        ylabel, ys = ydata
+
+        trace = gr.Scattergl(
+            x=xs,
+            y=ys,
+            mode="markers"
+        )
+
+        traces.append(trace)
+
+    layout = gr.Layout(
+        title=f'{xlabel} vs {ylabel}',
+        xaxis={'title': xlabel, 'type': 'log' if logx else '-'},
+        yaxis={'title': ylabel, 'type': 'log' if logy else '-'}
+    )
+
+    fig = gr.Figure(data=traces, layout=layout)
+
+    plotter(fig)
 
 
 def plot3d():
-    results = get_results()
+    sampled_results = np.random.choice(results.data, size=20000)
+    xs = [job['r0'] for job in sampled_results]
+    ys = [job['r3'] for job in sampled_results]
+    zs = [job['gpfs_read'] for job in sampled_results]
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+    trace = gr.Scatter3d(
+        x=xs,
+        y=ys,
+        z=zs,
+        mode='markers',
+        marker={'size': 2}
+    )
 
-    xs = [job['r0'] for job in results]
-    ys = [job['r3'] for job in results]
-    zs = [job['gpfs_read'] for job in results]
-    print(len(xs))
+    data = [trace]
+    layout = gr.Layout(
+        scene=gr.Scene(
+            xaxis=gr.XAxis(title='r0'),
+            yaxis=gr.YAxis(title='r3'),
+            zaxis=gr.ZAxis(title='gpfs_read')
+        )
+    )
 
-    ax.scatter(xs, ys, zs)
-    ax.set_xlabel('Section 1 b/s read')
-    ax.set_ylabel('Section 4 b/s read')
-    ax.set_zlabel('Total bytes read')
-    plt.show()
+    fig = gr.Figure(data=data, layout=layout)
+    plotter(fig)
 
 
 def main():
-    plot_by_application()
-    plot3d()
-    # for res in RESOURCE_NAMES:
-    #     write_csv(extract_jobs_data(res), res)
-
+    # plot_by_application()
+    # plot3d()
+    global plotter
+    plotter = plotly.offline.plot
+    # scatter2d((stdiff('r0', 'w0'), stdiff('r3', 'w3')))
+    results.filter(lambda j: to_mb(j['gpfs_write']) > 1000)
+    plot_by_category(
+        "appname",
+        partial(st, 'gpfs_write', ),
+        partial(st, 'caps_mid_diff_write'),
+        logx=True,
+    )
 
 if __name__ == '__main__':
     main()
