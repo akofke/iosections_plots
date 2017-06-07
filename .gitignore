@@ -3,3 +3,6 @@
 *.csv
 __pycache__
 *.p
+.ipynb_checkpoints
+*.ipynb
+temp-plot.html
