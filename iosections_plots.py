@@ -105,6 +105,7 @@ def generate_plots():
 def st(stat, jobs=results.data, transform=to_mb):
     """
     Generates a data series for a single stat key, e.g. r0 or gpfs_write.
+    :param jobs:
     :param stat: the key string for the stat
     :param transform: a function to apply to each data point (e.g. to_mb to convert bytes to mb)
     :return: a list of data points
@@ -120,11 +121,11 @@ def stdiff(stat1, stat2, jobs=results.data, transform=to_mb):
     :param transform:
     :return:
     """
-    return f'{stat1} - {stat2}', [transform(job[stat1] - job[stat2]) if transform else job[stat1] - job[stat2] for job in jobs]
+    return f'{stat1} - {stat2}', [transform(job[stat1] - job[stat2]) if transform else job[stat1] - job[stat2] for job
+                                  in jobs]
 
 
 def plot_by_category(cat_key, xfunc, yfunc, n_most_common=8, logx=False, logy=False):
-
     # use a defaultdict so new keys automatically start a list
     jobs_by_category = defaultdict(list)
 
@@ -172,6 +173,13 @@ def plot_by_category(cat_key, xfunc, yfunc, n_most_common=8, logx=False, logy=Fa
 
 
 def scatter2d(*axdata, logx=False, logy=False):
+    """
+    :param axdata: a varargs list of tuples, with the first element of the tuple being the x axis data (created with one
+    of the data-generating functions), and the second being the y axis data.
+    :param logx: True if the x axis should use a log scale
+    :param logy: True if the y axis should use a log scale
+    """
+
     traces = []
     for xdata, ydata in axdata:
         xlabel, xs = xdata
@@ -196,30 +204,48 @@ def scatter2d(*axdata, logx=False, logy=False):
     plotter(fig)
 
 
-def plot3d():
-    sampled_results = np.random.choice(results.data, size=20000)
-    xs = [job['r0'] for job in sampled_results]
-    ys = [job['r3'] for job in sampled_results]
-    zs = [job['gpfs_read'] for job in sampled_results]
+def plot3d(*axdata, sample=20000, logx=False, logy=False, logz=False):
+    """
 
-    trace = gr.Scatter3d(
-        x=xs,
-        y=ys,
-        z=zs,
-        mode='markers',
-        marker={'size': 2}
-    )
+    :param axdata: A varargs list of tuples, with the first element of the tuple being the data for the x axis, then
+     the y axis, then the z axis.
+    :param sample:
+    :param logx:
+    :param logy:
+    :param logz:
+    :return:
+    """
+    # sampled_results = np.random.choice([axdata], size=sample)
+    # xs = [job['r0'] for job in sampled_results]
+    # ys = [job['r3'] for job in sampled_results]
+    # zs = [job['gpfs_read'] for job in sampled_results]
 
-    data = [trace]
+    traces = []
+
+    for xdata, ydata, zdata in sampled_results:
+        xlabel, xs = xdata
+        ylabel, ys = ydata
+        zlabel, zs = zdata
+
+        traces.append(
+            gr.Scatter3d(
+                x=xs,
+                y=ys,
+                z=zs,
+                mode='markers',
+                marker={'size': 2}
+            )
+        )
+
     layout = gr.Layout(
         scene=gr.Scene(
-            xaxis=gr.XAxis(title='r0'),
-            yaxis=gr.YAxis(title='r3'),
-            zaxis=gr.ZAxis(title='gpfs_read')
+            xaxis=gr.XAxis(title=xlabel, type='log' if logx else '-'),
+            yaxis=gr.YAxis(title=ylabel, type='log' if logy else '-'),
+            zaxis=gr.ZAxis(title=zlabel, type='log' if logz else '-')
         )
     )
 
-    fig = gr.Figure(data=data, layout=layout)
+    fig = gr.Figure(data=traces, layout=layout)
     plotter(fig)
 
 
@@ -236,6 +262,7 @@ def main():
         partial(st, 'caps_mid_diff_write'),
         logx=True,
     )
+
 
 if __name__ == '__main__':
     main()
