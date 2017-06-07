@@ -23,7 +23,10 @@ QUERY = f"""
       io.gpfs_read,
       io.gpfs_write,
       a.name AS appname,
-      pip.short_name AS pi
+      pip.short_name AS pi,
+      j.shared,
+      io.res_id,
+      j.local_job_id
     FROM
       `ts_analysis`.`iosections` io,
       `modw_supremm`.`job` j,
@@ -35,6 +38,7 @@ QUERY = f"""
       AND (j.end_time_ts - j.start_time_ts) > %s
       AND j.application_id = a.id
       AND j.principalinvestigator_person_id = pip.person_id
+      AND j.shared = 0
     """
 
 
@@ -67,7 +71,7 @@ class Results:
         self._data = get_results(rebuild_cache=rebuild_cache)
 
     def filter(self, func):
-        self._data = filter(func, self.data)
+        self._data = list(filter(func, self.data))
 
     @property
     def data(self):

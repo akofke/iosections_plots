@@ -11,7 +11,7 @@ from db.mongo import extract_jobs_data
 from db import GPFS_NAME
 from db.mysql import Results
 
-results = Results()
+results = Results(rebuild_cache=False)
 plotter = plotly.offline.iplot
 
 
@@ -102,7 +102,7 @@ def generate_plots():
     plt.show()
 
 
-def st(stat, jobs=results.data, transform=to_mb):
+def st(stat, jobs=None, transform=to_mb):
     """
     Generates a data series for a single stat key, e.g. r0 or gpfs_write.
     :param jobs:
@@ -110,10 +110,11 @@ def st(stat, jobs=results.data, transform=to_mb):
     :param transform: a function to apply to each data point (e.g. to_mb to convert bytes to mb)
     :return: a list of data points
     """
-    return stat, [transform(job[stat]) if transform else job[stat] for job in jobs]
+    _jobs = jobs if jobs else results.data
+    return stat, [transform(job[stat]) if transform else job[stat] for job in _jobs]
 
 
-def stdiff(stat1, stat2, jobs=results.data, transform=to_mb):
+def stdiff(stat1, stat2, jobs=None, transform=to_mb):
     """
     Generate a data series for a difference between two stats, e.g. r0 - r1
     :param stat1:
@@ -121,8 +122,9 @@ def stdiff(stat1, stat2, jobs=results.data, transform=to_mb):
     :param transform:
     :return:
     """
+    _jobs = jobs if jobs else results.data
     return f'{stat1} - {stat2}', [transform(job[stat1] - job[stat2]) if transform else job[stat1] - job[stat2] for job
-                                  in jobs]
+                                  in _jobs]
 
 
 def plot_by_category(cat_key, xfunc, yfunc, n_most_common=8, logx=False, logy=False):
@@ -188,13 +190,15 @@ def scatter2d(*axdata, logx=False, logy=False):
         trace = gr.Scattergl(
             x=xs,
             y=ys,
-            mode="markers"
+            mode="markers",
+            text=[f'{j["res_id"]},{j["local_job_id"]}' for j in results.data]
         )
 
         traces.append(trace)
 
     layout = gr.Layout(
         title=f'{xlabel} vs {ylabel}',
+        hovermode='closest',
         xaxis={'title': xlabel, 'type': 'log' if logx else '-'},
         yaxis={'title': ylabel, 'type': 'log' if logy else '-'}
     )
@@ -222,7 +226,7 @@ def plot3d(*axdata, sample=20000, logx=False, logy=False, logz=False):
 
     traces = []
 
-    for xdata, ydata, zdata in sampled_results:
+    for xdata, ydata, zdata in axdata:
         xlabel, xs = xdata
         ylabel, ys = ydata
         zlabel, zs = zdata
@@ -249,19 +253,30 @@ def plot3d(*axdata, sample=20000, logx=False, logy=False, logz=False):
     plotter(fig)
 
 
+def generate_html(fig):
+    div = plotly.offline.plot(fig, show_link=False, output_type='div')
+    with open('xdmod_open.js') as js:
+        tag = f'<script>{js.read()}</script>'
+
+    with open('plot.html', 'w') as html:
+        html.write(f'{div}{tag}')
+
+
 def main():
     # plot_by_application()
     # plot3d()
     global plotter
-    plotter = plotly.offline.plot
+    global results
+    plotter = generate_html
     # scatter2d((stdiff('r0', 'w0'), stdiff('r3', 'w3')))
-    results.filter(lambda j: to_mb(j['gpfs_write']) > 1000)
-    plot_by_category(
-        "appname",
-        partial(st, 'gpfs_write', ),
-        partial(st, 'caps_mid_diff_write'),
-        logx=True,
-    )
+    # plot_by_category(
+    #     "pi",
+    #     partial(st, "gpfs_read"),
+    #     partial(st, 'gpfs_write'),
+    # )
+    results.filter(lambda j: to_mb(j['gpfs_read']) > 10000000)
+    print(len(results.data))
+    scatter2d((stdiff("r1", "r3"), st("caps_mid_diff_read")), (stdiff("r1", "r3"), st("caps_mid_diff_write")))
 
 
 if __name__ == '__main__':
