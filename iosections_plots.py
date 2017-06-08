@@ -66,7 +66,8 @@ def plot_by_category(cat_key, xfunc, yfunc, n_most_common=8, logx=False, logy=Fa
             mode='markers',
             marker={
                 'size': 5
-            }
+            },
+            text=[f'{j["res_id"]},{j["local_job_id"]}' for j in jobs]
         )
 
         traces.append(trace)
@@ -176,9 +177,8 @@ def generate_html(fig):
 
 
 def main():
-    results.rebuild_cache()
-    # plot_by_application()
-    # plot3d()
+    # results.rebuild_cache()
+
     global plotter
     plotter = generate_html
     # scatter2d((stdiff('r0', 'w0'), stdiff('r3', 'w3')))
@@ -187,9 +187,19 @@ def main():
     #     partial(st, "gpfs_read"),
     #     partial(st, 'gpfs_write'),
     # )
-    results.filter(lambda j: to_mb(j['gpfs_read']) > 10000000)
+    # results.filter(lambda j: to_mb(j['gpfs_read']) > 1000)
+    # results.filter(lambda j: j["caps_mid_diff_read"] > 0)
     print(len(results.data))
-    scatter2d((stdiff("r1", "r3"), st("caps_mid_diff_read")), (stdiff("r1", "r3"), st("caps_mid_diff_write")))
+    # scatter2d((stdiff("r0", "r3"), st("caps_mid_diff_read")))
+    # scatter2d((stdiff("w0", "w3"), st("caps_mid_diff_write")))
+
+    plot_by_category(
+        "appname",
+        partial(stdiff, "w0", "w3"),
+        partial(st, 'caps_mid_diff_write'),
+        n_most_common=12
+    )
+    # scatter2d((st("r0"), st("w3")))
 
 
 if __name__ == '__main__':
