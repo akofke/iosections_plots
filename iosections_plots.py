@@ -176,10 +176,10 @@ def generate_html(fig):
 
 
 def main():
+    results.rebuild_cache()
     # plot_by_application()
     # plot3d()
     global plotter
-    global results
     plotter = generate_html
     # scatter2d((stdiff('r0', 'w0'), stdiff('r3', 'w3')))
     # plot_by_category(
