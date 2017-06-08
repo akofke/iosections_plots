@@ -1,14 +1,10 @@
 from collections import defaultdict, Counter
 from functools import partial
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.axes3d import Axes3D
 import plotly
 import plotly.graph_objs as gr
 import numpy as np
 
-from db.mongo import extract_jobs_data
-from db import GPFS_NAME
 from db.mysql import Results
 
 results = Results(rebuild_cache=False)
