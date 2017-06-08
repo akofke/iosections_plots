@@ -38,7 +38,6 @@ QUERY = f"""
       AND (j.end_time_ts - j.start_time_ts) > %s
       AND j.application_id = a.id
       AND j.principalinvestigator_person_id = pip.person_id
-      AND j.shared = 0
     """
 
 
@@ -50,7 +49,7 @@ def get_results(rebuild_cache=False):
 
         t = time.perf_counter()
         cur = conn.cursor()
-        cur.execute(QUERY, (3600,))
+        cur.execute(QUERY, (10 * 60,))
         print(f"Executed mysql query in {time.perf_counter() - t} sec")
         results = cur.fetchall()
         cur.close()
@@ -80,4 +79,7 @@ class Results:
     @data.setter
     def data(self, value):
         self._data = value
+
+    def rebuild_cache(self):
+        self._data = get_results(True)
 
