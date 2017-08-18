@@ -10,34 +10,27 @@ MYSQL_HOST = os.environ.get("MYSQL_HOST", "127.0.0.1")
 
 QUERY = f"""
     SELECT
-      io.r0,
-      io.r1,
-      io.r2,
-      io.r3,
-      io.w0,
-      io.w1,
-      io.w2,
-      io.w3,
-      ((io.r0 + io.r3) / 2) - ((io.r1 + io.r2) / 2) AS caps_mid_diff_read,
-      ((io.w0 + io.w3) / 2) - ((io.w1 + io.w2) / 2) AS caps_mid_diff_write,
-      io.gpfs_read,
-      io.gpfs_write,
+      io.*,
       a.name AS appname,
       pip.short_name AS pi,
       j.shared,
-      io.res_id,
-      j.local_job_id
+      j.local_job_id,
+      j.wall_time,
+      exe.`binary` AS bin
     FROM
-      `ts_analysis`.`iosections` io,
+      `ts_analysis`.`ts_patterns` io,
       `modw_supremm`.`job` j,
       `modw_supremm`.`application` a,
-      `modw`.`piperson` pip
+      `modw`.`piperson` pip,
+      `modw_supremm`.`executable` exe 
     WHERE
       io.res_id = j.resource_id AND io.local_job_id = j.local_job_id AND io.end_timestamp = j.end_time_ts
       AND j.datasource_id = 2
       AND (j.end_time_ts - j.start_time_ts) > %s
       AND j.application_id = a.id
       AND j.principalinvestigator_person_id = pip.person_id
+      AND j.executable_id = exe.id
+      AND j.shared = 0
     """
 
 

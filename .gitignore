@@ -7,5 +7,6 @@ __pycache__
 *.ipynb
 temp-plot.html
 plot.html
+plot*.html
 
 venv
